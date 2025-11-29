@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // url is in prisma.config.ts
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  MISSED
+}
+
+model User {
+  id                    String      @id @default(uuid())
+  name                  String
+  email                 String      @unique
+  password              String
+  phone                 String?
+  isProvider            Boolean     @default(false)
+  avatarUrl             String?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  services              Service[]
+  appointmentsAsCustomer Appointment[] @relation("customerAppointments")
+  appointmentsAsProvider Appointment[] @relation("providerAppointments")
+  providerAvailabilities ProviderAvailability[]
+  providerBlocks         ProviderBlock[]
+  tokens                 Token[]
+}
+
+model Service {
+  id         String   @id @default(uuid())
+  providerId String
+  provider   User     @relation(fields: [providerId], references: [id])
+  name       String
+  duration   Int
+  price      Float
+  createdAt  DateTime @default(now())
+
+  appointments Appointment[]
+
+  @@index([providerId])
+}
+
+model Appointment {
+  id         String            @id @default(uuid())
+  date       DateTime
+  status     AppointmentStatus @default(SCHEDULED)
+  customerId String
+  providerId String
+  serviceId  String?
+  notes      String?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  customer   User     @relation("customerAppointments", fields: [customerId], references: [id])
+  provider   User     @relation("providerAppointments", fields: [providerId], references: [id])
+  service    Service? @relation(fields: [serviceId], references: [id])
+
+  @@index([providerId, date])
+  @@index([customerId])
+}
+
+model ProviderAvailability {
+  id         String   @id @default(uuid())
+  providerId String
+  provider   User     @relation(fields: [providerId], references: [id])
+  weekday    Int
+  startTime  String
+  endTime    String
+  createdAt  DateTime @default(now())
+
+  @@unique([providerId, weekday, startTime, endTime])
+  @@index([providerId, weekday])
+}
+
+model ProviderBlock {
+  id         String   @id @default(uuid())
+  providerId String
+  provider   User     @relation(fields: [providerId], references: [id])
+  startAt    DateTime
+  endAt      DateTime
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  @@index([providerId, startAt, endAt])
+}
+
+model Token {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, type])
+}
